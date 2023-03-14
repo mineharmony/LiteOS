@@ -1,94 +1,95 @@
-LITEOSTOPDIR = $(CURDIR)
+include $(LITEOSTOPDIR)/config.mk
 
-export LITEOSTOPDIR
+MODULE_NAME := $(LITEOS_PLATFORM)
 
--include $(LITEOSTOPDIR)/config.mk
+-include $(LITEOSTOPDIR)/targets/$(LITEOS_PLATFORM)/config.mk
 
-RM = rm -rf
-MAKE = make
-__LIBS = libs
+ALL_ASSRCS := $(wildcard board/$(LITEOS_PLATFORM)/*.S)
+ASSRCS := $(subst board/$(LITEOS_PLATFORM)/board.ld.S,,$(ALL_ASSRCS))
 
-LITEOS_TARGET = Huawei_LiteOS
-LITEOS_LIBS_TARGET = libs_target
+LOCAL_SRCS += $(ASSRCS)
 
-.PHONY: all lib clean cleanall $(LITEOS_TARGET) debug release help
+HARDWARE_SRC =  \
+    ${wildcard $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Hardware/Src/*.c} \
+    ${wildcard $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Hardware/LCD/*.c}
+    C_SOURCES += $(HARDWARE_SRC)
 
-all: $(OUT) $(BUILD) $(LITEOS_TARGET)
-lib: $(OUT) $(BUILD) $(LITEOS_LIBS_TARGET)
+USER_SRC =  \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/os_adapt/os_adapt.c \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Src/gpio.c \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Src/Huawei_IoT_QR_Code.c \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Src/i2c.c \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Src/loader_main.c \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Src/main.c \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Src/spi.c \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Src/stm32l4xx_it.c \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Src/sys_init.c \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Src/system_stm32l4xx.c \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Src/usart.c \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Src/tim.c \
+    $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Src/user_task.c
+    C_SOURCES += $(USER_SRC)
 
-debug:
-	$(HIDE)echo "=============== make a debug version  ==============="
-	$(HIDE) $(MAKE) all
+# C includes
+HAL_DRIVER_INC = \
+    -I $(LITEOSTOPDIR)/targets/bsp/include \
+    -I $(LITEOSTOPDIR)/targets/bsp/drivers/STM32L4xx_HAL_Driver/Inc \
+    -I $(LITEOSTOPDIR)/targets/bsp/drivers/STM32L4xx_HAL_Driver/Inc/Legacy
+    BOARD_INCLUDES += $(HAL_DRIVER_INC)
 
-release:
-ifeq ($(PLATFORM),)
-	$(HIDE)echo "=============== make a release version for platform $(PLATFORM) ==============="
-	$(HIDE)$(SCRIPTS_PATH)/mklibversion.sh $(PLATFORM)
-else
-	$(HIDE)echo "================make a release version for all platform ==============="
-	$(HIDE)$(SCRIPTS_PATH)/mklibversion.sh
-endif
+HARDWARE_INC = \
+    -I $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Hardware/Inc} \
+    -I $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Hardware/LCD} \
+    -I $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Inc
+    BOARD_INCLUDES += $(HARDWARE_INC)
 
-#-----need move when make version-----#
-##### make lib #####
-$(__LIBS): $(OUT) $(CXX_INCLUDE)
-$(LITEOS_TARGET): $(__LIBS) LITEOS_BUILD
+INCLUDE_INC = \
+    -I $(LITEOSTOPDIR)/include
+    BOARD_INCLUDES += $(INCLUDE_INC)
 
-$(OUT): $(LITEOS_MENUCONFIG_H)
-	$(HIDE)mkdir -p $(OUT)/lib
+BSP_INC = \
+    -I $(LITEOSTOPDIR)/targets/bsp/common \
+    -I $(LITEOSTOPDIR)/targets/bsp/include \
+    -I $(LITEOSTOPDIR)/targets/bsp/hw/include \
+    -I $(LITEOSTOPDIR)/targets/bsp/drivers/st_timer \
+    -I $(LITEOSTOPDIR)/compat/posix/src \
+    -I $(LITEOSTOPDIR)/targets/STM32L431_BearPi/include \
+    -I $(LITEOSTOPDIR)/kernel/extended/include
+    BOARD_INCLUDES += $(BSP_INC)
 
-$(BUILD):
-	$(HIDE)mkdir -p $(BUILD)
+HARDWARE_INC = \
+    -I $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Hardware/Inc
+    BOARD_INCLUDES += $(HARDWARE_INC)
 
-$(LITEOS_LIBS_TARGET): $(__LIBS)
-	$(HIDE)for dir in $(LIB_SUBDIRS); \
-		do $(MAKE) -C $$dir all || exit 1; \
-	done
-	$(HIDE)echo "=============== make lib done  ==============="
+USER_INC = \
+    -I $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Inc
+    BOARD_INCLUDES += $(USER_INC)
 
-include tools/menuconfig/Makefile.kconfig
+USER_INC = \
+    -I $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Inc \
+    -I $(LITEOSTOPDIR)/targets/STM32L431_BearPi/include \
+    -I $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Hardware/Inc \
+    -I $(LITEOSTOPDIR)/targets/STM32L431_BearPi/Hardware/LCD
+    BOARD_INCLUDES += $(USER_INC)
 
-$(LITEOS_MENUCONFIG_H):
-ifneq ($(LITEOS_PLATFORM_MENUCONFIG_H), $(wildcard $(LITEOS_PLATFORM_MENUCONFIG_H)))
-	$(HIDE)+make savemenuconfig
-endif
+# C defines
+C_DEFS =  \
+    -D USE_HAL_DRIVER \
+    -D NDEBUG \
+    -D __LITEOS__ \
+    -D _ALL_SOURCE
 
-LITEOS_BUILD: $(LITEOS_MENUCONFIG_H)
+ASM_SOURCES =  \
+    ${wildcard $(LITEOSTOPDIR)/targets/STM32L431_BearPi/los_startup_gcc.S}
 
-LITEOS_BUILD:
-	$(HIDE)echo $(LOSCFG_ENTRY_SRC)
+BOARD_SRCS += $(ASM_SOURCES)
+BOARD_SRCS += $(C_SOURCES)
 
-	$(HIDE)for dir in $(LITEOS_SUBDIRS); \
-	do $(MAKE) -C $$dir all || \
-	if [ "$$?" != "0" ]; then \
-	echo "########################################################################################################"; \
-	echo "########                      LiteOS build failed!                                              ########"; \
-	echo "########################################################################################################"; \
-	exit 1; \
-	fi;\
-	done
+LOCAL_SRCS := $(subst $(CURDIR)/,, $(BOARD_SRCS))
 
-$(LITEOS_TARGET):
-ifeq ($(OS), Linux)
-	$(call update_from_baselib_file)
-endif
-	$(LD) $(LITEOS_LDFLAGS) $(LITEOS_TABLES_LDFLAGS) $(LITEOS_DYNLDFLAGS) -Map=$(OUT)/$@.map -o $(OUT)/$@.elf --start-group $(LITEOS_BASELIB) --end-group
-	$(OBJCOPY) -O binary $(OUT)/$@.elf $(OUT)/$@.bin
-	$(OBJDUMP) -t $(OUT)/$@.elf |sort >$(OUT)/$@.sym.sorted
-	$(OBJDUMP) -d $(OUT)/$@.elf >$(OUT)/$@.asm
-	$(SIZE) $(OUT)/$@.elf
-	$(HIDE)echo "########################################################################################################"
-	$(HIDE)echo "########                      LiteOS build successfully!                                        ########"
-	$(HIDE)echo "########################################################################################################"
+BOARD_DEF += $(C_DEFS)
+LOCAL_INCLUDE += $(BOARD_INCLUDES)
 
-clean:
-	$(HIDE)for dir in $(LITEOS_SUBDIRS); \
-		do make -C $$dir clean|| exit 1; \
-	done
-	$(HIDE)$(RM) $(__OBJS) $(LITEOS_TARGET) $(OUT) $(BUILD) $(LITEOS_MENUCONFIG_H) *.bak *~
-	$(HIDE)$(RM) -rf $(LITEOS_PLATFORM_MENUCONFIG_H)
-	$(HIDE)echo "clean $(LITEOS_PLATFORM) finish"
+LOCAL_FLAGS := $(BOARD_DEF) $(LOCAL_INCLUDE) $(LITEOS_GCOV_OPTS) $(LITEOS_CFLAGS_INTERWORK)
 
-cleanall:
-	$(HIDE)rm -rf $(LITEOSTOPDIR)/out
-	$(HIDE)echo "clean all"
+include $(MODULE)
